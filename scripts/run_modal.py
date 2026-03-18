@@ -2,7 +2,8 @@
 FlashInfer-Bench Modal Cloud Benchmark Runner.
 
 Automatically packs the solution from source files and runs benchmarks
-on NVIDIA B200 GPUs via Modal, with trajectory tracking.
+on NVIDIA GPUs via Modal, with trajectory tracking.
+GPU type is read from config.toml (set at environment creation time).
 Caches reference baseline on first run for stable, efficient subsequent runs.
 
 Setup (one-time):
@@ -17,6 +18,16 @@ from pathlib import Path
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
+_config_path = PROJECT_ROOT / "config.toml"
+with open(_config_path, "rb") as _f:
+    _config = tomllib.load(_f)
+_GPU_TYPE = _config["build"].get("gpu", "b200").upper()
 
 import modal
 from flashinfer_bench import Benchmark, BenchmarkConfig, Solution, TraceSet
@@ -34,9 +45,9 @@ image = (
 )
 
 
-@app.function(image=image, gpu="B200:1", timeout=3600, volumes={TRACE_SET_PATH: trace_volume})
+@app.function(image=image, gpu=f"{_GPU_TYPE}:1", timeout=3600, volumes={TRACE_SET_PATH: trace_volume})
 def run_benchmark(solution: Solution, config: BenchmarkConfig = None) -> dict:
-    """Run benchmark on Modal B200 and return results."""
+    """Run benchmark on Modal GPU and return results."""
     from flashinfer_bench.bench.benchmark import Benchmark as _Benchmark
 
     if config is None:
@@ -88,7 +99,7 @@ def run_benchmark(solution: Solution, config: BenchmarkConfig = None) -> dict:
 
 @app.local_entrypoint()
 def main(label: str = None, force_baseline: bool = False):
-    """Pack solution and run benchmark on Modal B200, with trajectory tracking."""
+    """Pack solution and run benchmark on Modal GPU, with trajectory tracking."""
     from scripts.bench_utils import run_and_report
     from scripts.pack_solution import pack_solution
 
@@ -103,5 +114,5 @@ def main(label: str = None, force_baseline: bool = False):
         solution, run_benchmark.remote,
         force_baseline=force_baseline,
         label=label,
-        backend="modal-b200",
+        backend=f"modal-{_GPU_TYPE.lower()}",
     )

@@ -2,9 +2,9 @@
 # setup.sh - Create isolated child environments for GPU kernel optimization
 #
 # Usage:
-#   bash setup.sh --operator <name>                                 # local A100, from scratch
-#   bash setup.sh --operator <name> --name "experiment_1"           # local A100 with label
-#   bash setup.sh --operator <name> --backend modal                 # Modal B200, from scratch
+#   bash setup.sh --operator <name>                                 # local, auto-detect GPU, from scratch
+#   bash setup.sh --operator <name> --name "experiment_1"           # local with label
+#   bash setup.sh --operator <name> --backend modal --gpu b200      # Modal B200, from scratch
 #   bash setup.sh --operator <name> --mode existing --kernel /path/to/kernel.py
 #   bash setup.sh --operator <name> --dataset /path/to/dataset      # custom dataset
 #   bash setup.sh --operator <name> --language cuda                 # CUDA kernel (default: triton)
@@ -76,7 +76,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Error: Unknown argument '$1'"
-            echo "Usage: bash setup.sh --operator <name> [--dataset <path>] [--mode scratch|existing] [--backend local|modal] [--language triton|cuda] [--gpu a100|b200] [--agent claude] [--kernel <path>] [--name <label>] [--task <path>] [--hints <path>]"
+            echo "Usage: bash setup.sh --operator <name> [--dataset <path>] [--mode scratch|existing] [--backend local|modal] [--language triton|cuda] [--gpu <name>] [--agent claude] [--kernel <path>] [--name <label>] [--task <path>] [--hints <path>]"
             exit 1
             ;;
     esac
@@ -96,22 +96,33 @@ case "$LANGUAGE" in
         ;;
 esac
 
-# Infer GPU from backend if not specified
+# --- Resolve GPU ---
 if [[ -z "$GPU" ]]; then
-    case "$BACKEND" in
-        local) GPU="a100" ;;
-        modal) GPU="b200" ;;
-    esac
+    if [[ "$BACKEND" == "modal" ]]; then
+        echo "Error: --gpu is required for modal backend"
+        exit 1
+    fi
+    # Local mode: auto-detect via nvidia-smi
+    if ! command -v nvidia-smi &>/dev/null; then
+        echo "Error: No GPU specified and nvidia-smi not found. Use --gpu <name>."
+        exit 1
+    fi
+    GPU_FULL=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+    if [[ -z "$GPU_FULL" ]]; then
+        echo "Error: No GPU detected. Use --gpu <name>."
+        exit 1
+    fi
+    # Extract model identifier (A100, H100, B200, etc.)
+    GPU=$(echo "$GPU_FULL" | grep -oP '[A-Z]\d+' | head -1 | tr '[:upper:]' '[:lower:]')
+    if [[ -z "$GPU" ]]; then
+        echo "Error: Could not identify GPU model from '$GPU_FULL'. Use --gpu <name>."
+        exit 1
+    fi
+    echo "Auto-detected GPU: $GPU_FULL (using --gpu $GPU)"
 fi
 
-case "$GPU" in
-    a100) GPU_NAME="A100" ;;
-    b200) GPU_NAME="B200" ;;
-    *)
-        echo "Error: --gpu must be 'a100' or 'b200' (got '$GPU')"
-        exit 1
-        ;;
-esac
+# GPU_NAME = uppercase of slug (a100 → A100, h100 → H100)
+GPU_NAME=$(echo "$GPU" | tr '[:lower:]' '[:upper:]')
 
 # --- Resolve agent config ---
 AGENT_CONFIG="$PARENT_DIR/templates/agent/${AGENT}.json"
@@ -166,7 +177,7 @@ if [[ -z "$OPERATOR" ]]; then
         echo "  $op_name  ($op_type)"
     done
     echo ""
-    echo "Usage: bash setup.sh --operator <name> [--dataset <path>] [--mode scratch|existing] [--backend local|modal] [--language triton|cuda] [--gpu a100|b200] [--agent claude] [--kernel <path>] [--name <label>] [--task <path>] [--hints <path>]"
+    echo "Usage: bash setup.sh --operator <name> [--dataset <path>] [--mode scratch|existing] [--backend local|modal] [--language triton|cuda] [--gpu <name>] [--agent claude] [--kernel <path>] [--name <label>] [--task <path>] [--hints <path>]"
     exit 0
 fi
 
@@ -229,7 +240,8 @@ GPU_FRAGMENT="$PARENT_DIR/templates/fragments/gpu-${GPU}.md"
 BACKEND_FRAGMENT="$PARENT_DIR/templates/fragments/backend-${BACKEND}.md"
 OBJECTIVE_FRAGMENT="$PARENT_DIR/templates/fragments/objective-${MODE}.md"
 
-for frag in "$GPU_FRAGMENT" "$BACKEND_FRAGMENT" "$OBJECTIVE_FRAGMENT"; do
+# Backend and objective fragments are required; GPU fragment is optional
+for frag in "$BACKEND_FRAGMENT" "$OBJECTIVE_FRAGMENT"; do
     if [[ ! -f "$frag" ]]; then
         echo "Error: Fragment not found: $frag"
         exit 1
@@ -301,6 +313,7 @@ author = "user"
 
 [build]
 language = "${LANGUAGE}"
+gpu = "${GPU}"
 entry_point = "kernel.py::run"
 destination_passing_style = false
 TOML
@@ -351,7 +364,11 @@ else
 fi
 
 # --- Read fragment contents ---
-GPU_CONTENT=$(cat "$GPU_FRAGMENT")
+if [[ -f "$GPU_FRAGMENT" ]]; then
+    GPU_CONTENT=$(cat "$GPU_FRAGMENT")
+else
+    GPU_CONTENT="- GPU: $GPU_NAME"
+fi
 BACKEND_CONTENT=$(cat "$BACKEND_FRAGMENT")
 OBJECTIVE_RAW=$(cat "$OBJECTIVE_FRAGMENT")
 

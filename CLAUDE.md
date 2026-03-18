@@ -44,13 +44,13 @@ kernel-opt-agent/
 
 1. Parses `--operator`, `--mode`, `--backend`, `--language`, `--gpu`, `--agent`, `--kernel`, `--name`, `--dataset`, `--task`, `--hints`
 2. If `--operator` not provided, lists available operators from the dataset and exits
-3. Derives `LANGUAGE_NAME` from `--language` (triton→Triton, cuda→CUDA) and `GPU_NAME` from `--gpu`
+3. Derives `LANGUAGE_NAME` from `--language` (triton→Triton, cuda→CUDA) and resolves GPU (auto-detect for local, required for modal)
 4. Reads agent config from `templates/agent/{agent}.json` for output filenames and permissions
 5. Auto-discovers operator definition from `<dataset>/definitions/*/<operator>.json`
 6. Runs `generate_context.py` to extract template variables (shapes, workload summary, etc.)
 7. Auto-increments run number -> creates `kernel-opt-agent-run-NNN[-label]/`
 8. Copies definition.json and workloads.jsonl from the dataset
-9. Auto-generates `config.toml` with operator name, language, and default build settings
+9. Auto-generates `config.toml` with operator name, language, GPU, and default build settings
 10. Copies backend-specific bench script and runner (`run_local.py` or `run_modal.py`)
 11. Generates `.claude/settings.local.json` from agent config permissions
 12. Extracts reference kernel from definition.json (scratch) or copies user-provided kernel (existing)
@@ -66,8 +66,8 @@ Templates use these placeholders (replaced at spawn time):
 |-------------|--------|---------|
 | `{{LANGUAGE}}` | `--language` flag (default: triton) | `triton` |
 | `{{LANGUAGE_NAME}}` | derived from `--language` | `Triton` |
-| `{{GPU}}` | `fragments/gpu-{gpu}.md` content | (hardware specs line) |
-| `{{GPU_NAME}}` | derived from `--gpu` | `A100` |
+| `{{GPU}}` | `fragments/gpu-{gpu}.md` content (or fallback `- GPU: {NAME}`) | (hardware specs line) |
+| `{{GPU_NAME}}` | `uppercase(--gpu)` | `A100`, `H100` |
 | `{{BACKEND}}` | `fragments/backend-{backend}.md` content | (execution instructions) |
 | `{{OBJECTIVE}}` | `fragments/objective-{mode}.md` content | (multi-line) |
 | `{{OPERATOR}}` | definition name | `dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64` |
@@ -80,7 +80,7 @@ Templates use these placeholders (replaced at spawn time):
 
 - **Task template**: Edit `templates/task.md` — the main template assembled into the child's task file
 - **Objective fragments**: Edit `templates/fragments/objective-scratch.md` or `objective-existing.md`
-- **GPU hardware specs**: Edit `templates/fragments/gpu-a100.md` or `gpu-b200.md`
+- **GPU hardware specs**: Edit or add `templates/fragments/gpu-{name}.md` (optional; if missing, `{{GPU}}` falls back to `- GPU: {NAME}`)
 - **Backend execution instructions**: Edit `templates/fragments/backend-local.md` or `backend-modal.md`
 - **Agent config**: Edit `templates/agent/claude.json` (output filenames + permissions)
 - **Hints template**: Edit `templates/hints.md`

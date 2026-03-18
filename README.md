@@ -8,7 +8,7 @@ A tool for automated GPU kernel optimization using Code Agents (e.g. Claude Code
 # List available operators
 bash setup.sh
 
-# Create an optimization environment (local A100, Triton, from scratch)
+# Create an optimization environment (local, auto-detect GPU, Triton, from scratch)
 bash setup.sh --operator dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
 
 # Enter the child environment and start your code agent
@@ -25,7 +25,7 @@ bash setup.sh \
   [--mode scratch|existing] \       # default: scratch
   [--backend local|modal] \         # default: local
   [--language triton|cuda] \        # default: triton
-  [--gpu a100|b200] \               # default: inferred from backend
+  [--gpu <name>] \                  # local: auto-detected; modal: required
   [--agent claude] \                # default: claude
   [--kernel /path/to/kernel.py] \   # required for existing mode
   [--name <label>] \                # optional label for the run
@@ -36,16 +36,19 @@ bash setup.sh \
 ### Examples
 
 ```bash
-# Local A100, from scratch, with label
+# Local, auto-detect GPU, from scratch, with label
 bash setup.sh --operator gdn_decode_qk4_v8_d128_k_last --name "gdn_exp_1"
 
-# Local A100, from existing kernel
+# Local with explicit GPU
+bash setup.sh --operator gdn_decode_qk4_v8_d128_k_last --gpu h100
+
+# Local, from existing kernel
 bash setup.sh --operator dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64 \
     --mode existing --kernel /path/to/kernel.py
 
-# Modal B200, from scratch
+# Modal B200, from scratch (--gpu required for modal)
 bash setup.sh --operator moe_fp8_block_scale_ds_routing_topk8_ng8_kg4_e32_h7168_i2048 \
-    --backend modal --name "moe_b200"
+    --backend modal --gpu b200 --name "moe_b200"
 
 # Custom dataset
 bash setup.sh --operator my_custom_op --dataset /path/to/my/traceset
@@ -155,11 +158,12 @@ bash scripts/bench.sh --force-baseline    # Force re-profile reference
 ## Requirements
 
 **Local backend (default):**
-- NVIDIA A100-SXM4-40GB
+- NVIDIA GPU (auto-detected via `nvidia-smi`, or specify with `--gpu`)
 - Conda env `fi-bench` (Python 3.12, PyTorch 2.9.1+cu128, `flashinfer-bench`)
 - `FIB_DATASET_PATH` pointing to the trace set, or use `--dataset`
 
 **Modal backend:**
+- `--gpu` is required (e.g. `--gpu b200`, `--gpu h100`)
 - Conda env `fi-bench` (with `modal` and `flashinfer-bench`)
 - Modal authenticated (`conda run -n fi-bench --no-capture-output modal setup`)
 - Modal volume `flashinfer-trace` with the trace set uploaded
