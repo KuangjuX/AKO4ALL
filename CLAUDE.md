@@ -138,7 +138,7 @@ The benchmark system caches reference implementation performance on the first ru
 - `config.toml`: `destination_passing_style = false` by default
 - Operator data (definition.json, workloads.jsonl, reference kernel) comes from the dataset at spawn time, not from static files in this repo
 - Benchmark scripts hardcode conda environment name `fi-bench` (`scripts/bench.sh` line 20, `scripts/bench_modal.sh` line 16)
-- Local benchmarking requires CUDA 13.0+ driver for CUPTI profiling (CUDA 12.x → use Modal backend)
+- Local benchmarking uses CUPTI profiling with CUDA Toolkit 13.0+ (falls back to CUDA events on older versions)
 
 ## Entry Point Conventions
 

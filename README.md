@@ -212,8 +212,8 @@ bash scripts/bench.sh --force-baseline    # Force re-profile reference
 ### Prerequisites
 
 - **NVIDIA GPU**: CUDA-capable GPU (A100, H100, B200, etc.)
-- **CUDA Driver**: 13.0+ required for local benchmarking (CUPTI profiling dependency)
-- **Python**: 3.12 recommended
+- **CUDA Toolkit**: 13.0+ recommended for CUPTI profiling (falls back to CUDA events on older versions)
+- **Python**: 3.10 – 3.13 (3.12 recommended)
 - **Conda**: For environment management
 
 ### Option 1: Using Conda (Recommended)
@@ -279,14 +279,14 @@ nvidia-smi
 # Check flashinfer-bench
 python -c "import flashinfer_bench; print(flashinfer_bench.__version__)"
 
-# Check CUDA version (13.0+ required for local CUPTI profiling)
+# Check CUDA version (13.0+ recommended for CUPTI profiling; falls back to CUDA events)
 python -c "import torch; print(torch.version.cuda)"
 
 # List available operators
 python setup.py --dataset /path/to/flashinfer-trace
 ```
 
-**⚠️ Known Issue**: Local benchmarking requires **CUDA 13.0+** driver for CUPTI profiling. If you have CUDA 12.x, use Modal backend (`--backend modal`) instead.
+**⚠️ Note**: Local benchmarking uses CUPTI profiling by default, which requires **CUDA Toolkit 13.0+** (and a compatible driver). On older CUDA versions, profiling automatically falls back to CUDA events. For best accuracy, use CUDA 13.0+ or the Modal backend (`--backend modal`).
 
 ## Requirements Summary
 
@@ -295,7 +295,7 @@ See **Installation** section above for detailed setup instructions.
 **Quick reference:**
 
 **Local backend (default):**
-- NVIDIA GPU with CUDA 13.0+ driver (CUPTI requirement)
+- NVIDIA GPU with CUDA Toolkit 13.0+ recommended (CUPTI profiling; falls back to CUDA events)
 - Conda environment named `fi-bench` (hardcoded in `scripts/bench.sh`)
 - Environment variable `FIB_DATASET_PATH` pointing to the trace set
 
