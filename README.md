@@ -207,15 +207,103 @@ bash scripts/bench.sh "opt_v1"            # Uses cached baseline, 100 iterations
 bash scripts/bench.sh --force-baseline    # Force re-profile reference
 ```
 
-## Requirements
+## Installation
+
+### Prerequisites
+
+- **NVIDIA GPU**: CUDA-capable GPU (A100, H100, B200, etc.)
+- **CUDA Driver**: 13.0+ required for local benchmarking (CUPTI profiling dependency)
+- **Python**: 3.12 recommended
+- **Conda**: For environment management
+
+### Option 1: Using Conda (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/flashinfer-ai/kernel-opt-agent.git
+cd kernel-opt-agent
+
+# Create conda environment
+conda env create -f environment.yml
+
+# Activate environment
+conda activate fi-bench
+
+# Install flashinfer-bench from source
+pip install git+https://github.com/flashinfer-ai/flashinfer-bench.git@main
+
+# Set dataset path (required for local backend)
+export FIB_DATASET_PATH=/path/to/flashinfer-trace
+```
+
+### Option 2: Using pip
+
+```bash
+# Clone the repository
+git clone https://github.com/flashinfer-ai/kernel-opt-agent.git
+cd kernel-opt-agent
+
+# Create virtual environment
+python3.12 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install flashinfer-bench from source
+pip install git+https://github.com/flashinfer-ai/flashinfer-bench.git@main
+
+# Set dataset path (required for local backend)
+export FIB_DATASET_PATH=/path/to/flashinfer-trace
+```
+
+### Modal Backend Setup (Optional)
+
+For cloud benchmarking on Modal:
+
+```bash
+# Authenticate with Modal
+conda run -n fi-bench --no-capture-output modal setup
+
+# Create and upload trace volume
+modal volume create flashinfer-trace
+modal volume put flashinfer-trace /path/to/flashinfer-trace/
+```
+
+### Verify Installation
+
+```bash
+# Check GPU
+nvidia-smi
+
+# Check flashinfer-bench
+python -c "import flashinfer_bench; print(flashinfer_bench.__version__)"
+
+# Check CUDA version (13.0+ required for local CUPTI profiling)
+python -c "import torch; print(torch.version.cuda)"
+
+# List available operators
+python setup.py --dataset /path/to/flashinfer-trace
+```
+
+**⚠️ Known Issue**: Local benchmarking requires **CUDA 13.0+** driver for CUPTI profiling. If you have CUDA 12.x, use Modal backend (`--backend modal`) instead.
+
+## Requirements Summary
+
+See **Installation** section above for detailed setup instructions.
+
+**Quick reference:**
 
 **Local backend (default):**
-- NVIDIA GPU (auto-detected via `nvidia-smi`, or specify with `--gpu`)
-- Conda env `fi-bench` (Python 3.12, PyTorch 2.9.1+cu128, `flashinfer-bench`)
-- `FIB_DATASET_PATH` pointing to the trace set, or use `--dataset`
+- NVIDIA GPU with CUDA 13.0+ driver (CUPTI requirement)
+- Conda environment named `fi-bench` (hardcoded in `scripts/bench.sh`)
+- Environment variable `FIB_DATASET_PATH` pointing to the trace set
 
 **Modal backend:**
-- `--gpu` is required (e.g. `--gpu b200`, `--gpu h100`)
-- Conda env `fi-bench` (with `modal` and `flashinfer-bench`)
-- Modal authenticated (`conda run -n fi-bench --no-capture-output modal setup`)
-- Modal volume `flashinfer-trace` with the trace set uploaded
+- `--gpu` flag required (e.g., `--gpu b200`, `--gpu h100`)
+- Modal authenticated and volume uploaded
+- No local GPU or CUDA driver required
+
+**Note on Environment Name**: The benchmark scripts (`scripts/bench.sh`, `scripts/bench_modal.sh`) hardcode `conda run -n fi-bench`. If you use a different environment name, either:
+- Rename your environment to `fi-bench`, or
+- Modify `scripts/bench.sh` line 20 and `scripts/bench_modal.sh` line 16 in spawned child environments
