@@ -114,9 +114,13 @@ def resolve_dataset(dataset_arg):
         print("Error: No dataset path specified.")
         sys.exit("Set FIB_DATASET_PATH or use --dataset to specify the path to the flashinfer-bench trace set.")
     dataset = Path(dataset_path)
+    if not dataset.is_dir():
+        sys.exit(f"Error: Dataset directory does not exist: {dataset.resolve()}\n"
+                 f"Check the path and try again, or set FIB_DATASET_PATH.")
     if not (dataset / "definitions").is_dir():
-        print(f"Error: Dataset not found at {dataset}/definitions")
-        sys.exit("Set FIB_DATASET_PATH or use --dataset to specify the path to the flashinfer-bench trace set.")
+        sys.exit(f"Error: Dataset directory exists ({dataset.resolve()}) but has no 'definitions/' subdirectory.\n"
+                 f"Expected structure: {dataset}/definitions/<category>/<operator>.json\n"
+                 f"Is this a valid flashinfer-bench dataset?")
     return dataset
 
 
