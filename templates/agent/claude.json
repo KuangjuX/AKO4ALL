@@ -1,6 +1,4 @@
 {
-  "task_filename": "CLAUDE.md",
-  "hints_filename": "HINTS.md",
   "permissions": {
     "allow": [
       "Bash(*)", "Edit(*)", "Read(*)", "Write(*)",

@@ -144,7 +144,7 @@ kernel-opt-agent-run-xxx/
 
 5. **Generate `scripts/bench.sh`**: Read `templates/bench-wrapper.sh` from this repo, replace `{{BENCH_COMMAND}}` with the adjusted command from step 4, write to `<child>/scripts/bench.sh`, make executable.
 
-6. **Write `.claude/settings.local.json`**: Read `templates/agent/claude.json` from this repo, extract the `permissions` object, write as `<child>/.claude/settings.local.json`.
+6. **Write `.claude/settings.local.json`**: Copy `templates/agent/claude.json` from this repo to `<child>/.claude/settings.local.json`.
 
 7. **Copy `.gitignore`**: Copy this repo's `.gitignore` to `<child>/.gitignore`.
 
