@@ -213,7 +213,7 @@ def render_template(task_text, placeholders):
 
 
 def populate_child(child_dir, *, language, operator, gpu, mode, backend, kernel_path,
-                   definition_path, workloads_path, agent_config, hints_path, hints_filename):
+                   definition_path, workloads_path, dataset_path, agent_config, hints_path, hints_filename):
     """Create child directory structure and populate with files."""
     # Create directories
     for subdir in [".claude", "docs", "scripts", f"solution/{language}"]:
@@ -238,6 +238,7 @@ def populate_child(child_dir, *, language, operator, gpu, mode, backend, kernel_
         entry_point = "binding.py::kernel"  # C++ also uses Python bindings
     else:
         entry_point = "kernel.py::run"  # fallback
+    dataset_line = f'dataset_path = "{dataset_path.resolve()}"\n' if backend == "local" else ""
     config_toml = (
         f'[solution]\n'
         f'name = "{operator}-reference"\n'
@@ -249,6 +250,7 @@ def populate_child(child_dir, *, language, operator, gpu, mode, backend, kernel_
         f'gpu = "{gpu}"\n'
         f'entry_point = "{entry_point}"\n'
         f'destination_passing_style = false\n'
+        f'{dataset_line}'
     )
     (child_dir / "config.toml").write_text(config_toml)
 
@@ -428,6 +430,7 @@ def main():
         kernel_path=args.kernel,
         definition_path=definition_path,
         workloads_path=workloads_path,
+        dataset_path=dataset_path,
         agent_config=agent_config,
         hints_path=hints_path,
         hints_filename=hints_filename,

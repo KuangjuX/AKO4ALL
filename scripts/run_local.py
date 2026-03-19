@@ -20,12 +20,25 @@ from scripts.pack_solution import pack_solution
 
 
 def get_trace_set_path() -> str:
-    """Get trace set path from environment variable."""
+    """Get trace set path from config.toml or environment variable."""
+    # Prefer config.toml (written at spawn time)
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib
+    config_path = PROJECT_ROOT / "config.toml"
+    if config_path.exists():
+        with open(config_path, "rb") as f:
+            config = tomllib.load(f)
+        path = config.get("build", {}).get("dataset_path")
+        if path:
+            return path
+    # Fall back to environment variable
     path = os.environ.get("FIB_DATASET_PATH")
     if not path:
         raise EnvironmentError(
-            "FIB_DATASET_PATH environment variable not set. "
-            "Please set it to the path of your flashinfer-trace dataset."
+            "Dataset path not found. Either set 'dataset_path' in config.toml "
+            "or the FIB_DATASET_PATH environment variable."
         )
     return path
 

@@ -231,7 +231,7 @@ conda activate fi-bench
 # Install flashinfer-bench from source
 pip install git+https://github.com/flashinfer-ai/flashinfer-bench.git@main
 
-# Set dataset path (required for local backend)
+# Set dataset path (only needed for setup.py; child envs store it in config.toml)
 export FIB_DATASET_PATH=/path/to/flashinfer-trace
 ```
 
@@ -252,7 +252,7 @@ pip install -r requirements.txt
 # Install flashinfer-bench from source
 pip install git+https://github.com/flashinfer-ai/flashinfer-bench.git@main
 
-# Set dataset path (required for local backend)
+# Set dataset path (only needed for setup.py; child envs store it in config.toml)
 export FIB_DATASET_PATH=/path/to/flashinfer-trace
 ```
 
@@ -301,7 +301,7 @@ See **Installation** section above for detailed setup instructions.
 **Local backend (default):**
 - NVIDIA GPU with CUDA 13.0+ driver recommended (CUPTI profiling; falls back to CUDA events)
 - Conda environment named `fi-bench` (hardcoded in `scripts/bench.sh`)
-- Environment variable `FIB_DATASET_PATH` pointing to the trace set
+- Dataset path (stored in child env's `config.toml` at spawn time; `FIB_DATASET_PATH` env var as fallback)
 
 **Modal backend:**
 - `--gpu` flag required (e.g., `--gpu b200`, `--gpu h100`)
