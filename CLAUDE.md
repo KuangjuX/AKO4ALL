@@ -150,6 +150,19 @@ The generated CLAUDE.md must be **self-contained** — Session 2 will not read t
 
 6. **Workflow** — baseline -> analyze -> modify -> bench -> iterate -> rollback on regression -> stop when done.
 
+### Child CLAUDE.md Conditional Sections
+
+Include these sections **if and only if** the relevant information was found during
+analysis. Do not fabricate information. If something was investigated but unavailable,
+briefly note the limitation instead.
+
+- **Benchmark Internals** — timing method, L2 cache policy, config parameters, result
+  aggregation method, reference baseline level
+- **Correctness Tolerance** — atol/rtol values and what they imply for precision tradeoffs
+- **Workload Distribution** — actual test case parameters and their distribution
+- **Known Limitations** — opaque benchmark library, missing error diagnostics, infrastructure
+  failure modes, or other constraints Session 2 should be aware of
+
 ## Constraints
 
 - Never modify files outside the child directory.
