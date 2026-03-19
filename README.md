@@ -33,7 +33,8 @@ claude
 Claude Code will ask you for:
 1. **Kernel path** — file or directory containing the kernel to optimize
 2. **Bench script path** — the script that benchmarks the kernel
-3. **Hints** (optional) — optimization hints or constraints
+3. **Reference implementation** (optional) — a known-correct implementation for the agent to study before optimizing
+4. **Hints** (optional) — optimization hints or constraints
 
 It analyzes both files, creates an isolated child environment, and tells you to:
 
