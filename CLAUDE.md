@@ -21,6 +21,20 @@ Read the kernel file(s). Identify:
 - **Inputs/outputs**: tensor shapes, dtypes, arguments
 - **Functionality**: what the kernel computes (one sentence)
 
+Additionally, look for optimization-relevant details to include in the child CLAUDE.md:
+
+- **Reference implementation pitfalls**: Patterns in the reference code that exist for
+  simplicity but should NOT be replicated in an optimized version (e.g., full-tensor
+  casts/copies that should be done on-the-fly, sequential loops that should be parallel).
+  Call these out explicitly so Session 2 avoids copying them.
+- **Computation pattern**: Is there reduction, scan, gather/scatter, matmul, elementwise?
+  Briefly describe the algorithmic structure.
+- **Special semantics**: Padding/sentinel values (e.g., -1 means invalid), boundary
+  conditions, output values for edge cases (empty input, all-padding). Clarify whether
+  sentinel values appear in contiguous blocks or scattered arbitrarily.
+- **Output allocation**: Does the function return new tensors, or write into pre-allocated
+  buffers? State this clearly in plain language (avoid jargon like "destination_passing_style").
+
 ### 3. Analyze the bench script
 
 Read the bench script **and any libraries/configs it imports**. Identify:
