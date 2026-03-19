@@ -50,6 +50,20 @@ kernel-opt-agent-run-xxx/
 
 Each `bash scripts/bench.sh "label"` run saves a snapshot to `trajectory/` for tracking progress.
 
+## Hints & Web Search
+
+The `HINTS.md` file in each child environment controls agent behavior. Edit it before starting Session 2 to guide the optimization.
+
+**Web search** is available as a capability but **disabled by default** in `HINTS.md`. To enable it when the agent hits an optimization plateau, replace the default constraint with:
+
+```markdown
+- If 3 consecutive optimization rounds show no speedup improvement, use WebSearch
+  to research optimization techniques specific to this kernel type, then apply
+  what you find.
+```
+
+You can adjust the round threshold (e.g., change `3` to `5`) or add constraints on what to search for.
+
 ## Customization
 
 | File | Purpose |
