@@ -53,13 +53,30 @@ Do NOT modify files in `bench/` or `scripts/`.
 <!-- =================================================================
      THIS IS A REFERENCE EXAMPLE for Session 1 (CLAUDE.md generation).
 
-     When creating a child CLAUDE.md, include these required sections:
+     REQUIRED SECTIONS (always include):
        1. Role       — one-line expert description
        2. Hints      — "Read HINTS.md before starting"
        3. Kernel     — language, entry point, inputs, outputs, what it does
        4. Benchmark  — how to run, output format, pass/fail criteria
        5. Editable   — which files the agent may modify
-       6. Workflow   — baseline -> analyze -> modify -> bench -> iterate
+       6. Workflow   — use the detailed template from mother CLAUDE.md
+
+     CONDITIONAL SECTIONS (include if found during analysis):
+       - Benchmark Internals — timing method (CUDA events, CUPTI, etc.),
+         L2 cache policy (cold/warm), config (warmup, iterations, trials),
+         result aggregation (mean/median/min), reference baseline level
+       - Correctness Tolerance — atol/rtol values and what they imply
+         (e.g., loose tolerance = aggressive bf16 is acceptable)
+       - Workload Distribution — actual parameter values and counts
+         (e.g., "10 workloads with num_tokens=1-2, 13 with num_tokens=4-8")
+       - Known Limitations — opaque libraries, missing error diagnostics,
+         infrastructure failure modes, or other Session 2 constraints
+
+     KERNEL SECTION DEPTH — beyond the basics, include if discovered:
+       - Reference implementation pitfalls (patterns to avoid copying)
+       - Computation pattern (reduction, gather/scatter, matmul, etc.)
+       - Special semantics (padding/sentinel values, edge case outputs)
+       - Output allocation (returns new tensors vs writes into buffers)
 
      Adapt all details to the actual kernel and bench script provided
      by the user. The above is a hypothetical Triton softmax example.
