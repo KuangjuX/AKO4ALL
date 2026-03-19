@@ -76,15 +76,25 @@ Do NOT modify files in `bench/` or `scripts/`.
    patterns (e.g., latency tiers suggesting different input sizes). This informs
    which cases to prioritize.
 3. Read and analyze the kernel in `solution/`
-4. Identify optimization opportunities and rewrite/optimize the kernel
-5. Modify kernel -> `bash scripts/bench.sh "description"` -> analyze results -> iterate
-6. If a change causes FAILED:
+4. If the benchmark output alone does not reveal where time is spent, write a
+   profiling script in `solution/` to identify bottlenecks (memory-bound vs
+   compute-bound, hot loops, etc.). Choose the appropriate tool based on what
+   is available in the environment (e.g., ncu, nsys, torch.profiler, manual
+   CUDA event timing). Two approaches:
+   - If the bench script source is readable: inspect it to understand input
+     construction, then replicate the same inputs in your profiling script.
+   - If the bench script is opaque: use the Kernel section of this document
+     to construct representative inputs, or wrap the bench command with an
+     external profiler (e.g., `ncu -- bash scripts/bench.sh`).
+5. Identify optimization opportunities and rewrite/optimize the kernel
+6. Modify kernel -> `bash scripts/bench.sh "description"` -> analyze results -> iterate
+7. If a change causes FAILED:
    a. Read the benchmark output to identify the failure type
    b. For numerical errors: try targeted fixes (e.g., more fp32 accumulation)
    c. For crashes: check shape mismatches, OOM, or compilation issues
    d. If the cause is unclear or unfixable, revert: `git checkout solution/`
-7. Check per-workload breakdown to target the weakest cases
-8. Stop when no further improvements are found; summarize final results
+8. Check per-workload breakdown to target the weakest cases
+9. Stop when no further improvements are found; summarize final results
 
 <!-- =================================================================
      THIS IS A REFERENCE EXAMPLE for Session 1 (CLAUDE.md generation).

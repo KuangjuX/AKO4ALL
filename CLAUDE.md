@@ -125,16 +125,7 @@ akf-run-xxx/
 
 2. **Copy kernel files to `solution/`**: Copy the kernel file(s) into `solution/`. Preserve filenames. If it's a directory, copy contents.
 
-3. **Copy bench script + local deps to `bench/`**: Copy the bench script and any local files it imports into `bench/`. If the bench script is in a directory with helpers, copy the directory contents.
-
-   **Light adjustments allowed**: When copying the bench script, you may make small,
-   targeted modifications to improve Session 2's experience. Mark each change with a
-   comment (e.g., `# [AutoKernelForge] added verbose output`). Acceptable adjustments:
-   - Make tolerance values explicit (pass `atol`/`rtol` to config instead of relying on defaults)
-   - Add workload parameter printing (e.g., print `num_tokens`, `num_pages` alongside results)
-   - Add failure detail printing (error message or failure category when status != PASSED)
-
-   Do NOT change benchmark logic, timing method, correctness checking, or workload definitions.
+3. **Copy bench script + local deps to `bench/`**: Copy the bench script and any local files it imports into `bench/`. If the bench script is in a directory with helpers, copy the directory contents. Do NOT modify the bench script.
 
 4. **Adjust bench command for new paths**: Figure out the command to run the bench script from the child root, with paths adjusted:
    - Kernel path becomes `solution/<filename>`
@@ -178,15 +169,25 @@ The generated CLAUDE.md must be **self-contained** — Session 2 will not read t
    patterns (e.g., latency tiers suggesting different input sizes). This informs
    which cases to prioritize.
 3. Read and analyze the kernel in `solution/`
-4. Identify optimization opportunities and rewrite/optimize the kernel
-5. Modify kernel -> `bash scripts/bench.sh "description"` -> analyze results -> iterate
-6. If a change causes FAILED:
+4. If the benchmark output alone does not reveal where time is spent, write a
+   profiling script in `solution/` to identify bottlenecks (memory-bound vs
+   compute-bound, hot loops, etc.). Choose the appropriate tool based on what
+   is available in the environment (e.g., ncu, nsys, torch.profiler, manual
+   CUDA event timing). Two approaches:
+   - If the bench script source is readable: inspect it to understand input
+     construction, then replicate the same inputs in your profiling script.
+   - If the bench script is opaque: use the Kernel section of this document
+     to construct representative inputs, or wrap the bench command with an
+     external profiler (e.g., `ncu -- bash scripts/bench.sh`).
+5. Identify optimization opportunities and rewrite/optimize the kernel
+6. Modify kernel -> `bash scripts/bench.sh "description"` -> analyze results -> iterate
+7. If a change causes FAILED:
    a. Read the benchmark output to identify the failure type
    b. For numerical errors: try targeted fixes (e.g., more fp32 accumulation)
    c. For crashes: check shape mismatches, OOM, or compilation issues
    d. If the cause is unclear or unfixable, revert: `git checkout solution/`
-7. Check per-workload breakdown to target the weakest cases
-8. Stop when no further improvements are found; summarize final results
+8. Check per-workload breakdown to target the weakest cases
+9. Stop when no further improvements are found; summarize final results
 ```
 
 **Note on optimization directions**: If including suggested optimization directions in the Workflow or Hints, only include directions that are actually relevant given the benchmark setup. For example, do not suggest L2 cache optimizations if the benchmark flushes L2, and do not suggest CUDA graph optimizations if kernel launch overhead is not the bottleneck.
