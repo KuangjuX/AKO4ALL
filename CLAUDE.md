@@ -78,6 +78,17 @@ Present findings. Ask the user to confirm or correct:
 
 Follow the procedure in [Child Environment Creation](#child-environment-creation) below.
 
+### 5b. Self-check the generated CLAUDE.md
+
+Re-read the child CLAUDE.md and verify:
+- Is it self-contained? Can Session 2 work without access to this template repo?
+- Did you include all benchmark details found during analysis (tolerance, timing,
+  config, workload info)?
+- Are there ambiguities that Session 2 would need to guess about?
+- If important information was unavailable, did you note the limitation?
+- Do the optimization directions (if any) make sense given the benchmark setup?
+  (e.g., don't suggest cache-warmth optimizations if L2 is flushed)
+
 ### 6. Done
 
 Tell the user:
