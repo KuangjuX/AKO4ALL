@@ -57,7 +57,7 @@ Edit `HINTS.md` to guide the optimization. Examples:
 - If 3 consecutive rounds show no improvement, use WebSearch for optimization ideas
 ```
 
-Web search is disabled by default in `HINTS.md`. Remove that line to allow the agent to search for optimization ideas online.
+Web search is enabled by default — the agent will search for optimization ideas online after 3 consecutive rounds without improvement. Edit `HINTS.md` to disable or adjust this behavior.
 
 ## Permissions
 
@@ -92,5 +92,5 @@ The agent reads the failure, attempts fixes, and reverts if needed.
 **My bench script uses a remote service (e.g., Modal). Does that work?**
 Yes. As long as your bench script runs from the command line and prints results to stdout.
 
-**Can I manually edit the kernel between runs?**
-Edit files in `solution/`, then tell the agent to continue.
+**Can I intervene during optimization?**
+Yes. You can interrupt the agent at any time to give guidance, discuss strategy, or manually edit files in `solution/`. Then tell the agent to continue.
