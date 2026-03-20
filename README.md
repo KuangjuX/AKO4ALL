@@ -14,7 +14,7 @@ Only a kernel is required — everything else is optional.
 
 ## Requirements
 
-- A coding agent (e.g., [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code))
+- A coding agent (e.g., [Claude Code](https://docs.anthropic.com/en/docs/claude-code))
 - Git
 - Benchmark environment:
   - Built-in evaluator: Python >= 3.10, PyTorch with CUDA, NVIDIA GPU
@@ -58,8 +58,11 @@ Edit `HINTS.md` to guide the optimization. Examples:
 ```markdown
 - Focus on the large-N workloads (N > 4096), they dominate runtime
 - Do not use inline PTX — keep it portable
+- Stay in Triton — do not rewrite the kernel in CUDA or other languages
 - If 3 consecutive rounds show no improvement, use WebSearch for optimization ideas
 ```
+
+> **Tip:** The agent may rewrite your kernel in a different language (e.g., converting Triton to CUDA) if it believes that will improve performance. Add a constraint in `HINTS.md` if you want to keep the original language.
 
 Web search is enabled by default — the agent will search for optimization ideas online after 3 consecutive rounds without improvement. Edit `HINTS.md` to disable or adjust this behavior.
 
