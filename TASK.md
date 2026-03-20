@@ -11,13 +11,14 @@ Ensure the user has populated:
 Then:
 1. Read and analyze `input/`, `bench/`, and `HINTS.md`.
 2. **Detect bench mode:**
-   - If `bench/` contains files (besides `.gitkeep` and `kernelbench/`) → **custom bench mode** (existing behavior, skip to step 3).
-   - If `bench/` is empty → **default bench mode** (KernelBench eval). Read `bench/kernelbench/GUIDE.md` for setup instructions, then continue at step 3.
-3. Create `solution/` and `scripts/` directories.
-4. Copy kernel files from `input/` to `solution/`.
-5. Build the bench command with adjusted paths, pipe through `2>&1 | tee _bench_output.txt`.
-6. Generate `bench.sh` from `bench-wrapper.sh` — replace `{{BENCH_COMMAND}}` with the command from step 5.
-7. `git add -A && git commit` the initial state.
+   - If `bench/` contains files besides `kernelbench/` → **custom bench mode** (user-provided benchmark, skip to step 3).
+   - Otherwise (only `kernelbench/` present) → **default bench mode** (KernelBench eval). Read `bench/kernelbench/GUIDE.md` for setup instructions, then continue at step 3.
+3. **Verify input shapes:** Confirm that at least one set of input shapes for testing can be determined from the kernel, reference, bench script, or `HINTS.md`. If no shapes can be found, **stop and ask the user** — do not guess.
+4. Create `solution/` and `scripts/` directories.
+5. Copy kernel files from `input/` to `solution/`.
+6. Build the bench command with adjusted paths, pipe through `2>&1 | tee _bench_output.txt`.
+7. Generate `bench.sh` from `bench-wrapper.sh` — replace `{{BENCH_COMMAND}}` with the command from step 5.
+8. `git add -A && git commit` the initial state.
 
 ## Directory Layout
 
