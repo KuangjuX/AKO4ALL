@@ -16,7 +16,7 @@ When `bench/` is empty (default bench mode), use `bench/kernelbench/bench.py` as
 
 If the user provides `input/reference.py`, use that as the reference (`--ref`). Otherwise, the input kernel file (original or wrapped) serves as the reference.
 
-**Bench command** (for CLAUDE.md step 5):
+**Bench command** (for TASK.md step 5):
 ```
 python bench/kernelbench/bench.py --ref input/<ref>.py --solution solution/<kernel>.py --verbose
 ```
