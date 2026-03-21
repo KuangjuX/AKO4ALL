@@ -12,7 +12,7 @@ Only a kernel is required — everything else is optional.
 - **Context** (optional) — Reference materials for the agent: algorithm descriptions, papers, design docs, or any background knowledge that helps inform the optimization.
 - **Hints** (optional) — Directives for the agent: optimization constraints, focus areas, and behavior controls (e.g., whether to allow web search).
 
-> **Notes:** At least one set of input shapes for testing must be determinable (from the kernel itself, reference, bench script, or hints) — the agent will ask if none can be found.
+> **Notes:** At least one set of input shapes for testing must be determinable — hardcoded in the kernel, reference, or bench script, or provided as additional files in `input/` or `bench/`. The agent will ask if none can be found.
 
 ## Requirements
 
