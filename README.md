@@ -77,7 +77,7 @@ Follow the instructions in TASK.md. Save HINTS.md to memory.
 Optimize for up to N iterations. Stop early only if all viable approaches are exhausted.
 SOL-ExecBench is at <path/to/SOL-ExecBench>.
 Input is <path/to/SOL-ExecBench>/data/benchmark/L1/001_attention_softmax_dropout_value_matmul_backward.
-Benchmark with SOL-ExecBench. SOL-ExecBench and all its dependencies are already installed — use them directly.
+Benchmark with SOL-ExecBench. All dependencies for SOL-ExecBench are already installed — use them directly.
 ```
 
 The agent handles the rest — reads the problem definition, sets up the benchmark, and starts iterating.
