@@ -109,7 +109,7 @@ For other agents, consult their documentation on permission / auto-approve setti
 
 - **Agent laziness** — Agents may default to conservative strategies: staying in PyTorch, only tuning configurations, or skipping profiling. If progress stalls, intervene with specific guidance.
 - **Model matters** — Model capability strongly influences optimization quality. We recommend [Claude Opus 4.6](https://docs.anthropic.com/en/docs/about-claude/models).
-- **Iteration limits** — By default, there is no iteration cap — the agent decides when to stop on its own. To enforce a limit, add a directive to `TASK.md`, `HINTS.md`, or your prompt (e.g., `Optimize for up to 30 iterations. Stop early only if all viable approaches are exhausted.`). For guidance on structuring open-ended agent tasks, see [autoresearch](https://github.com/karpathy/autoresearch)'s [`program.md`](https://github.com/karpathy/autoresearch/blob/master/program.md).
+- **Iteration limits** — By default, there is no iteration cap — the agent decides when to stop on its own. To enforce a limit, add a directive to `HINTS.md`, or your prompt (e.g., `Optimize for up to 30 iterations. Stop early only if all viable approaches are exhausted.`). For guidance on structuring open-ended agent tasks, see [autoresearch](https://github.com/karpathy/autoresearch)'s [`program.md`](https://github.com/karpathy/autoresearch/blob/master/program.md).
 
 ## Example: SOL-ExecBench
 
