@@ -34,3 +34,4 @@ Every modification to `solution/` code followed by a `bash scripts/bench.sh` run
 1. **Run benchmark** — `bash scripts/bench.sh iter-N` (label is required, must match `iter-N` format).
 2. **Update `ITERATIONS.md`** 
 3. **Git commit** — `[iter N] Short description of optimization direction`.
+4. **Hypothesis discipline** — Every hypothesis-driven kernel change must be committed before moving on. If results are worse, roll back with `git revert <commit>`; do not use `git reset`.
