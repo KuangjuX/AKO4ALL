@@ -33,5 +33,46 @@ Every modification to `solution/` code followed by a `bash scripts/bench.sh` run
 
 1. **Run benchmark** — `bash scripts/bench.sh iter-N` (label is required, must match `iter-N` format).
 2. **Update `ITERATIONS.md`** 
-3. **Git commit** — `[iter N] Short description of optimization direction`.
+3. **Git commit** — Use subject `[iter N] Short description of optimization direction` and include the required commit body template below.
 4. **Hypothesis discipline** — Every hypothesis-driven kernel change must be committed before moving on. If results are worse, roll back with `git revert <commit>`; do not use `git reset`.
+
+### Commit Body Template (Required)
+
+Every iteration commit **MUST** include the following structured fields in the commit body.
+Do not rename keys. Keep one key per line.
+
+```text
+kernel: <kernel_name>
+agent: <agent_id>
+gpu: <H800|B200|...>
+correctness: <PASS|FAIL>
+speedup_vs_baseline: <1.23x>
+latency_us: <45.6>
+changes: <brief summary of what changed>
+analysis: <brief summary of why it helped or regressed>
+```
+
+Rules:
+- `gpu` is mandatory (for example `H800` or `B200`).
+- `speedup_vs_baseline` and `latency_us` should come from the latest `bash scripts/bench.sh iter-N` run.
+- Keep `changes` and `analysis` concise but specific (1-3 lines each).
+
+**Each iteration MUST follow this loop before benchmarking:**
+
+1. **Hypothesize (required)**
+   Think carefully about what to try next. Consider:
+   - What is the current bottleneck? (compute-bound vs memory-bound; check roofline data)
+   - What tier of the optimization playbook should you explore next?
+   - What worked or failed in previous experiments?
+   - Are there combinations of successful changes you have not tried?
+   - You MUST write a brief hypothesis (1-2 sentences) explaining what you expect the change to do and why.
+
+2. **Edit the target kernel implementation in `solution/` (required)**
+   - You MUST edit the task-designated target kernel file defined by the AKO4ALL task contract.
+   - In AKO4ALL, the target implementation file is already specified by the task setup; follow that specification directly.
+   
+   Examples of one focused change:
+   - Change `BLOCK_SIZE_M` from 64 to 128
+   - Add software prefetching with `tl.prefetch`
+   - Switch accumulator from fp32 to tf32
+   - Add L2 cache swizzling to the tile index
