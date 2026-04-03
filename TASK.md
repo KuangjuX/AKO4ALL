@@ -82,6 +82,7 @@ Do not rename keys. Keep one key per line.
 kernel: <kernel_name>
 agent: <agent_id>
 gpu: <H800|B200|...>
+backend: <triton|cuda>
 correctness: <PASS|FAIL>
 speedup_vs_baseline: <1.23x>
 latency_us: <45.6>
@@ -91,6 +92,7 @@ analysis: <brief summary of why it helped or regressed>
 
 Rules:
 - `gpu` is mandatory (for example `H800` or `B200`).
+- `backend` is mandatory (`triton` for Triton kernels, `cuda` for CUDA C kernels).
 - `speedup_vs_baseline` and `latency_us` should come from the latest `bash scripts/bench.sh iter-N` run.
 - Keep `changes` and `analysis` concise but specific (1-3 lines each).
 
