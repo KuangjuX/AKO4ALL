@@ -36,6 +36,43 @@ Every modification to `solution/` code followed by a `bash scripts/bench.sh` run
 3. **Git commit** — Use subject `[iter N] Short description of optimization direction` and include the required commit body template below.
 4. **Hypothesis discipline** — Every hypothesis-driven kernel change must be committed before moving on. If results are worse, roll back with `git revert <commit>`; do not use `git reset`.
 
+---
+
+## ⛔ FORBIDDEN GIT COMMANDS — HARD RULE (VIOLATION = RUN REJECTED)
+
+The following git commands are **ABSOLUTELY FORBIDDEN** during optimization.
+KernelHub `sync-git` performs an automated integrity check on the commit chain.
+If history rewriting is detected, the entire run will be **rejected and must be redone from scratch**.
+
+| Forbidden command | Why |
+|---|---|
+| `git reset --hard` | Destroys commit history; makes iterations untraceable |
+| `git reset --mixed` | Removes commits from branch; same effect as above |
+| `git reset --soft` | Rewrites branch pointer; breaks parent chain |
+| `git reset HEAD~N` | Any form of reset that moves HEAD backward |
+| `git rebase` | Rewrites commit hashes; breaks parent chain verification |
+| `git rebase -i` | Interactive rebase; same as above |
+| `git commit --amend` | Replaces existing commit; breaks parent chain |
+| `git push --force` | Destroys remote history |
+| `git checkout -- <file>` then skipping commit | If you modified and want to undo, use `git revert` |
+
+**The ONLY acceptable way to undo a bad iteration is:**
+
+```bash
+git revert <bad-commit-hash>
+git add -A && git commit -m "[iter N] Revert: <reason>"
+```
+
+This preserves the full experimental history and passes the integrity check.
+
+**Verification**: After your run, you can self-check with:
+```bash
+git log --oneline --graph main..<your-branch>
+```
+Every commit should form a single linear chain with no gaps or rewrites.
+
+---
+
 ### Commit Body Template (Required)
 
 Every iteration commit **MUST** include the following structured fields in the commit body.
