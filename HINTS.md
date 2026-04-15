@@ -1,5 +1,6 @@
 # Hints
 
+- Before Iter 1, check if `context/history_summary.md` exists. If it does, read it — it contains results from prior optimization runs on this kernel, including strategies that worked and strategies that failed. Use this to skip known dead ends and prioritize proven directions.
 - Before Iter 1, run `ncu` on the baseline kernel to guide the first direction.
 - If 3 consecutive iterations show no improvement, run `ncu` to re-profile, use WebSearch for new ideas, and review `ITERATIONS.md` for patterns. Plan before continuing.
 

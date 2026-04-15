@@ -33,6 +33,8 @@ CORRECT: True
 RUNTIME: 0.4523
 REF_RUNTIME: 1.2301
 SPEEDUP: 2.7197x
+BASELINE_RUNTIME: 0.8100
+BASELINE_SPEEDUP: 1.7907x
 ```
 
 - **COMPILED** — whether the solution compiled successfully
@@ -40,6 +42,8 @@ SPEEDUP: 2.7197x
 - **RUNTIME** — solution kernel mean execution time in milliseconds
 - **REF_RUNTIME** — reference kernel mean execution time in milliseconds
 - **SPEEDUP** — `REF_RUNTIME / RUNTIME`
+- **BASELINE_RUNTIME** — baseline kernel mean execution time in milliseconds (only when `--baseline` is provided)
+- **BASELINE_SPEEDUP** — `BASELINE_RUNTIME / RUNTIME` (only when `--baseline` is provided)
 
 Exit code: `0` = correct, `1` = incorrect or failed.
 
@@ -55,6 +59,7 @@ Exit code: `0` = correct, `1` = incorrect or failed.
 | `--num-correct-trials` | `5` | Number of correctness check iterations |
 | `--num-perf-trials` | `100` | Number of performance timing iterations |
 | `--verbose` | off | Print detailed debug info |
+| `--baseline` | (none) | Path to baseline kernel; outputs `BASELINE_RUNTIME` and `BASELINE_SPEEDUP` |
 | `--self-test` | off | Run source transformation self-test and exit |
 
 ## Solution File Requirements

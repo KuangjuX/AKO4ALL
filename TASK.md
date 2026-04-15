@@ -15,7 +15,10 @@ Then:
 1. **Analyze inputs:** Read `input/`, `context/`, `bench/`, and `HINTS.md`. Detect bench mode — if `bench/` contains files besides `kernelbench/`, use the user-provided benchmark; otherwise use default bench mode (see `bench/kernelbench/GUIDE.md`). Confirm that input shapes can be determined; if not, **stop and ask the user**.
 2. **Create branch:** Create and switch to a new branch (e.g., `opt/<kernel-name>`).
 3. **Initialize solution:** Create `solution/` and `scripts/` directories. Copy kernel files from `input/` to `solution/`.
-4. **Generate bench.sh:** Build the bench command with adjusted paths, pipe through `2>&1 | tee _bench_output.txt`. Replace `{{BENCH_COMMAND}}` in `bench-wrapper.sh` to produce `scripts/bench.sh`.
+4. **Generate bench.sh:** Build the bench command with adjusted paths, pipe through `2>&1 | tee _bench_output.txt`. Replace `{{BENCH_COMMAND}}` in `bench-wrapper.sh` to produce `scripts/bench.sh`. The bench command **MUST** include `--baseline input/kernel.py` so that `BASELINE_SPEEDUP` is reported alongside `SPEEDUP`. Example:
+   ```
+   python bench/kernelbench/bench.py --ref input/reference.py --solution solution/kernel.py --baseline input/kernel.py --backend triton --verbose 2>&1 | tee _bench_output.txt
+   ```
 5. **Verify environment:** Run `bash scripts/bench.sh`. Expected: `CORRECT=True`. If it fails, diagnose and fix before proceeding. Then `git add -A && git commit -m "[baseline] Initialize solution and benchmark"`.
 
 ## Optimization
@@ -93,7 +96,12 @@ analysis: <brief summary of why it helped or regressed>
 Rules:
 - `gpu` is mandatory (for example `H800` or `B200`).
 - `backend` is mandatory (`triton` for Triton kernels, `cuda` for CUDA C kernels).
-- `speedup_vs_baseline` and `latency_us` should come from the latest `bash scripts/bench.sh iter-N` run.
+- `speedup_vs_baseline` **MUST** come from `BASELINE_SPEEDUP` (not `SPEEDUP`) in the bench output.
+  - `BASELINE_SPEEDUP` = baseline_kernel_runtime / solution_runtime (true improvement over the original kernel).
+  - `SPEEDUP` = reference_runtime / solution_runtime (comparison against the torch reference, **NOT** what we want).
+  - Your bench.sh **MUST** include `--baseline input/kernel.py` to enable this output.
+  - If `BASELINE_SPEEDUP` is not present in the bench output, your bench.sh is misconfigured — fix it before continuing.
+- `latency_us` should come from `RUNTIME` (converted to microseconds) in the bench output.
 - Keep `changes` and `analysis` concise but specific (1-3 lines each).
 
 **Each iteration MUST follow this loop before benchmarking:**

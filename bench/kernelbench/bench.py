@@ -15,6 +15,8 @@ Output (structured, one per line):
     RUNTIME: <ms>
     REF_RUNTIME: <ms>
     SPEEDUP: <x>
+    BASELINE_RUNTIME: <ms>       (only when --baseline is provided)
+    BASELINE_SPEEDUP: <x>        (only when --baseline is provided)
 
 Portions of this file are derived from KernelBench
 (https://github.com/ScalingIntelligence/KernelBench).
@@ -271,7 +273,9 @@ def _process_input_tensor(
     """Move tensor to device with correct dtype. Non-tensors pass through."""
     if not isinstance(inp, torch.Tensor):
         return inp
-    return inp.to(dtype=precision, device=device)
+    if inp.is_floating_point():
+        return inp.to(dtype=precision, device=device)
+    return inp.to(device=device)
 
 
 def get_error_name(e: Exception) -> str:
@@ -420,38 +424,82 @@ def run_and_check_correctness(
                 output_new = model_new(*inputs)
                 torch.cuda.synchronize(device=device)
 
-                if output.shape != output_new.shape:
+                def _flatten(x):
+                    if isinstance(x, torch.Tensor):
+                        return [x]
+                    if isinstance(x, (tuple, list)):
+                        flat = []
+                        for item in x:
+                            flat.extend(_flatten(item))
+                        return flat
+                    return []
+
+                out_list = _flatten(output)
+                out_new_list = _flatten(output_new)
+
+                if len(out_list) != len(out_new_list):
                     metadata = register_and_format_exception(
                         "correctness_issue",
-                        f"Output shape mismatch: Expected {output.shape}, got {output_new.shape}",
+                        f"Output count mismatch: Expected {len(out_list)} tensors, got {len(out_new_list)}",
                         metadata,
                     )
                     metadata["correctness_issue_name"] = "correctness_issue"
-                    if verbose:
-                        print(
-                            f"[FAIL] trial {trial}: Output shape mismatch: "
-                            f"Expected {output.shape}, got {output_new.shape}"
-                        )
                     return KernelExecResult(
                         compiled=True, correctness=False, metadata=metadata
                     )
 
+                trial_passed = True
                 tolerance = get_tolerance_for_precision(precision)
-                if not torch.allclose(
-                    output, output_new, atol=tolerance, rtol=tolerance
-                ):
-                    max_diff = torch.max(torch.abs(output - output_new)).item()
-                    avg_diff = torch.mean(torch.abs(output - output_new)).item()
-                    metadata.setdefault("max_difference", []).append(
-                        f"{max_diff:.6f}"
-                    )
-                    metadata.setdefault("avg_difference", []).append(
-                        f"{avg_diff:.6f}"
-                    )
-                    metadata["correctness_issue"] = "Output mismatch"
-                    if verbose:
-                        print(f"[FAIL] trial {trial}: Output mismatch")
-                else:
+                fp8_dtypes = (getattr(torch, "float8_e4m3fn", None), getattr(torch, "float8_e5m2", None))
+                fp8_dtypes = tuple(d for d in fp8_dtypes if d is not None)
+                for oi, (o, o_new) in enumerate(zip(out_list, out_new_list)):
+                    if o.shape != o_new.shape:
+                        metadata = register_and_format_exception(
+                            "correctness_issue",
+                            f"Output[{oi}] shape mismatch: Expected {o.shape}, got {o_new.shape}",
+                            metadata,
+                        )
+                        metadata["correctness_issue_name"] = "correctness_issue"
+                        if verbose:
+                            print(
+                                f"[FAIL] trial {trial}: Output[{oi}] shape mismatch: "
+                                f"Expected {o.shape}, got {o_new.shape}"
+                            )
+                        return KernelExecResult(
+                            compiled=True, correctness=False, metadata=metadata
+                        )
+
+                    if o.dtype in fp8_dtypes:
+                        outputs_match = torch.equal(o, o_new)
+                        max_diff = avg_diff = 0.0
+                        if not outputs_match:
+                            ou = o.view(torch.uint8)
+                            on = o_new.view(torch.uint8)
+                            max_diff = float((ou.to(torch.int32) - on.to(torch.int32)).abs().max().item())
+                            avg_diff = float((ou.to(torch.int32) - on.to(torch.int32)).abs().float().mean().item())
+                    else:
+                        o_f = o.to(torch.float32)
+                        o_new_f = o_new.to(torch.float32)
+                        outputs_match = torch.allclose(
+                            o_f, o_new_f, atol=tolerance, rtol=tolerance
+                        )
+                        max_diff = torch.max(torch.abs(o_f - o_new_f)).item()
+                        avg_diff = torch.mean(torch.abs(o_f - o_new_f)).item()
+
+                    if not outputs_match:
+                        metadata.setdefault("max_difference", []).append(
+                            f"{max_diff:.6f}"
+                        )
+                        metadata.setdefault("avg_difference", []).append(
+                            f"{avg_diff:.6f}"
+                        )
+                        metadata["correctness_issue"] = f"Output[{oi}] mismatch"
+                        if verbose:
+                            print(f"[FAIL] trial {trial}: Output[{oi}] mismatch (max_diff={max_diff:.6f})")
+                        trial_passed = False
+                        break
+
+                if trial_passed:
                     pass_count += 1
                     if verbose:
                         print(f"[PASS] trial {trial}: New Model matches Model")
@@ -870,6 +918,187 @@ def get_init_inputs():
 
 
 ###############################################################################
+# Multi-shape support
+###############################################################################
+
+
+def _detect_shape_configs(ref_src: str) -> list[dict] | None:
+    """Extract SHAPE_CONFIGS from reference source if defined."""
+    ctx = {}
+    try:
+        exec(compile(ref_src, "<string>", "exec"), ctx)
+    except Exception:
+        return None
+    configs = ctx.get("SHAPE_CONFIGS")
+    if isinstance(configs, list) and len(configs) > 0:
+        return configs
+    return None
+
+
+def _resolve_shape_indices(
+    shape_configs: list[dict] | None, shape_idx: int | None
+) -> list[int]:
+    """Return list of shape indices to evaluate, or empty for legacy mode."""
+    if shape_configs is None:
+        return []
+    if shape_idx is not None:
+        if 0 <= shape_idx < len(shape_configs):
+            return [shape_idx]
+        raise ValueError(
+            f"--shape-idx {shape_idx} out of range "
+            f"(SHAPE_CONFIGS has {len(shape_configs)} entries)"
+        )
+    return list(range(len(shape_configs)))
+
+
+def _inject_shape_idx(src: str, idx: int) -> str:
+    """Patch get_inputs() calls to pass shape_idx=<idx> as default."""
+    patched = re.sub(
+        r"def get_inputs\(shape_idx=None\)",
+        f"def get_inputs(shape_idx={idx})",
+        src,
+    )
+    if patched == src:
+        patched = re.sub(
+            r"def get_inputs\(shape_idx=\d+\)",
+            f"def get_inputs(shape_idx={idx})",
+            src,
+        )
+    return patched
+
+
+def _format_dims(cfg: dict) -> str:
+    """Format shape config dims for display, skipping the label key."""
+    parts = []
+    for k, v in cfg.items():
+        if k == "label":
+            continue
+        parts.append(f"{k}={v}")
+    return ", ".join(parts)
+
+
+def _run_single_eval(ref_src, sol_src, args, precision, baseline_src=None):
+    """Legacy single-shape evaluation path."""
+    result: KernelExecResult = eval_kernel_against_ref(
+        original_model_src=ref_src,
+        custom_model_src=sol_src,
+        num_correct_trials=args.num_correct_trials,
+        num_perf_trials=args.num_perf_trials,
+        measure_performance=True,
+        timing_method=args.timing_method,
+        verbose=args.verbose,
+        backend=args.backend,
+        precision=precision,
+    )
+
+    if result is None:
+        print("COMPILED: False")
+        print("CORRECT: False")
+        print("RUNTIME: -1")
+        print("REF_RUNTIME: -1")
+        print("SPEEDUP: -1")
+        print("ERROR: eval_kernel_against_ref returned None (possible lock file error)")
+        return None
+
+    runtime_ms = result.runtime if result.runtime > 0 else -1
+    ref_runtime_ms = result.ref_runtime if result.ref_runtime > 0 else -1
+    speedup = (ref_runtime_ms / runtime_ms) if (runtime_ms > 0 and ref_runtime_ms > 0) else -1
+
+    print(f"COMPILED: {result.compiled}")
+    print(f"CORRECT: {result.correctness}")
+    print(f"RUNTIME: {runtime_ms:.4f}" if runtime_ms > 0 else "RUNTIME: -1")
+    print(f"REF_RUNTIME: {ref_runtime_ms:.4f}" if ref_runtime_ms > 0 else "REF_RUNTIME: -1")
+    print(f"SPEEDUP: {speedup:.4f}x" if speedup > 0 else "SPEEDUP: -1")
+
+    if baseline_src is not None and result.correctness and runtime_ms > 0:
+        bl_ms = _measure_baseline_runtime(ref_src, baseline_src, args, precision)
+        bl_speedup = (bl_ms / runtime_ms) if bl_ms > 0 else -1
+        print(f"BASELINE_RUNTIME: {bl_ms:.4f}" if bl_ms > 0 else "BASELINE_RUNTIME: -1")
+        print(f"BASELINE_SPEEDUP: {bl_speedup:.4f}x" if bl_speedup > 0 else "BASELINE_SPEEDUP: -1")
+
+    if args.verbose:
+        print()
+        print("--- Details ---")
+        if result.runtime_stats:
+            print(f"Runtime stats: {result.runtime_stats}")
+        if result.ref_runtime_stats:
+            print(f"Ref runtime stats: {result.ref_runtime_stats}")
+        if result.metadata:
+            for k, v in result.metadata.items():
+                print(f"  {k}: {v}")
+    return result
+
+
+def _print_multi_shape_summary(shape_results: list[dict], all_correct: bool):
+    """Print aggregate summary after all shapes have been evaluated."""
+    valid = [s for s in shape_results if s["runtime"] > 0 and s["ref_runtime"] > 0]
+    print(f"SHAPES_EVALUATED: {len(shape_results)}")
+    print(f"ALL_CORRECT: {all_correct}")
+
+    for s in shape_results:
+        tag = "PASS" if s["correct"] else "FAIL"
+        rt = f'{s["runtime"]:.4f}' if s["runtime"] > 0 else "-1"
+        sp = f'{s["speedup"]:.4f}x' if s["speedup"] > 0 else "-1"
+        print(f"  [{tag}] {s['label']}: runtime={rt}ms speedup={sp}")
+
+    if valid:
+        avg_speedup = sum(s["speedup"] for s in valid) / len(valid)
+        min_speedup = min(s["speedup"] for s in valid)
+        max_speedup = max(s["speedup"] for s in valid)
+        print(f"AVG_SPEEDUP: {avg_speedup:.4f}x")
+        print(f"MIN_SPEEDUP: {min_speedup:.4f}x")
+        print(f"MAX_SPEEDUP: {max_speedup:.4f}x")
+
+    worst = min(
+        (s for s in shape_results if s["correct"]),
+        key=lambda s: s.get("speedup", float("inf")),
+        default=None,
+    )
+    if worst and worst["speedup"] > 0:
+        print(f"SPEEDUP: {worst['speedup']:.4f}x")
+        print(f"RUNTIME: {worst['runtime']:.4f}")
+        print(f"REF_RUNTIME: {worst['ref_runtime']:.4f}")
+
+    bl_valid = [s for s in shape_results if s.get("baseline_speedup", -1) > 0]
+    if bl_valid:
+        worst_bl = min(bl_valid, key=lambda s: s["baseline_speedup"])
+        print(f"BASELINE_SPEEDUP: {worst_bl['baseline_speedup']:.4f}x")
+
+    print(f"COMPILED: True")
+    print(f"CORRECT: {all_correct}")
+
+
+###############################################################################
+# Baseline comparison
+###############################################################################
+
+
+def _measure_baseline_runtime(
+    ref_src: str,
+    baseline_src: str,
+    args,
+    precision: torch.dtype,
+) -> float:
+    """Time the baseline kernel and return mean runtime in ms, or -1."""
+    modified_bl = prepare_solution_source(ref_src, baseline_src)
+    bl_result = eval_kernel_against_ref(
+        original_model_src=ref_src,
+        custom_model_src=modified_bl,
+        num_correct_trials=1,
+        num_perf_trials=args.num_perf_trials,
+        measure_performance=True,
+        timing_method=args.timing_method,
+        verbose=False,
+        backend=args.backend,
+        precision=precision,
+        check_for_excessive_speedup=False,
+    )
+    if bl_result and bl_result.runtime > 0:
+        return bl_result.runtime
+    return -1.0
+
+
+###############################################################################
 # CLI
 ###############################################################################
 
@@ -920,6 +1149,19 @@ def main():
         "--verbose", action="store_true", help="Enable verbose output"
     )
     parser.add_argument(
+        "--shape-idx",
+        type=int,
+        default=None,
+        help="Run only one shape from SHAPE_CONFIGS (0-based index). "
+        "If omitted and SHAPE_CONFIGS exists, all shapes are evaluated.",
+    )
+    parser.add_argument(
+        "--baseline",
+        default=None,
+        help="Path to baseline kernel. When provided, outputs BASELINE_RUNTIME "
+        "and BASELINE_SPEEDUP (= baseline_runtime / solution_runtime).",
+    )
+    parser.add_argument(
         "--self-test",
         action="store_true",
         help="Run source transformation self-test and exit",
@@ -940,6 +1182,7 @@ def main():
 
     ref_src = read_file(args.ref)
     sol_src = read_file(args.solution)
+    baseline_src = read_file(args.baseline) if args.baseline else None
 
     modified_sol_src = prepare_solution_source(ref_src, sol_src)
 
@@ -955,55 +1198,110 @@ def main():
         print(modified_sol_src[:500], "..." if len(modified_sol_src) > 500 else "")
         print()
 
-    result: KernelExecResult = eval_kernel_against_ref(
-        original_model_src=ref_src,
-        custom_model_src=modified_sol_src,
-        num_correct_trials=args.num_correct_trials,
-        num_perf_trials=args.num_perf_trials,
-        measure_performance=True,
-        timing_method=args.timing_method,
-        verbose=args.verbose,
-        backend=args.backend,
-        precision=precision,
-    )
+    shape_configs = _detect_shape_configs(ref_src)
+    shape_indices = _resolve_shape_indices(shape_configs, args.shape_idx)
 
-    if result is None:
-        print("COMPILED: False")
-        print("CORRECT: False")
-        print("RUNTIME: -1")
-        print("REF_RUNTIME: -1")
-        print("SPEEDUP: -1")
-        print("ERROR: eval_kernel_against_ref returned None (possible lock file error)")
-        sys.exit(1)
+    if not shape_indices:
+        result = _run_single_eval(
+            ref_src, modified_sol_src, args, precision, baseline_src
+        )
+        sys.exit(0 if (result and result.correctness) else 1)
 
-    runtime_ms = result.runtime if result.runtime > 0 else -1
-    ref_runtime_ms = result.ref_runtime if result.ref_runtime > 0 else -1
+    all_correct = True
+    shape_results = []
 
-    if runtime_ms > 0 and ref_runtime_ms > 0:
-        speedup = ref_runtime_ms / runtime_ms
-    else:
-        speedup = -1
-
-    print(f"COMPILED: {result.compiled}")
-    print(f"CORRECT: {result.correctness}")
-    print(f"RUNTIME: {runtime_ms:.4f}" if runtime_ms > 0 else "RUNTIME: -1")
-    print(
-        f"REF_RUNTIME: {ref_runtime_ms:.4f}" if ref_runtime_ms > 0 else "REF_RUNTIME: -1"
-    )
-    print(f"SPEEDUP: {speedup:.4f}x" if speedup > 0 else "SPEEDUP: -1")
-
-    if args.verbose:
+    for idx in shape_indices:
+        cfg = shape_configs[idx]
+        label = cfg.get("label", f"shape_{idx}")
         print()
-        print("--- Details ---")
-        if result.runtime_stats:
-            print(f"Runtime stats: {result.runtime_stats}")
-        if result.ref_runtime_stats:
-            print(f"Ref runtime stats: {result.ref_runtime_stats}")
-        if result.metadata:
-            for k, v in result.metadata.items():
-                print(f"  {k}: {v}")
+        print(f"{'=' * 60}")
+        print(f"SHAPE [{idx}]: {label}  dims={_format_dims(cfg)}")
+        print(f"{'=' * 60}")
 
-    sys.exit(0 if result.correctness else 1)
+        patched_ref = _inject_shape_idx(ref_src, idx)
+        patched_sol = _inject_shape_idx(modified_sol_src, idx)
+
+        result = eval_kernel_against_ref(
+            original_model_src=patched_ref,
+            custom_model_src=patched_sol,
+            num_correct_trials=args.num_correct_trials,
+            num_perf_trials=args.num_perf_trials,
+            measure_performance=True,
+            timing_method=args.timing_method,
+            verbose=args.verbose,
+            backend=args.backend,
+            precision=precision,
+        )
+
+        if result is None:
+            print(f"SHAPE_{idx}_LABEL: {label}")
+            print(f"SHAPE_{idx}_COMPILED: False")
+            print(f"SHAPE_{idx}_CORRECT: False")
+            print(f"SHAPE_{idx}_RUNTIME: -1")
+            print(f"SHAPE_{idx}_REF_RUNTIME: -1")
+            print(f"SHAPE_{idx}_SPEEDUP: -1")
+            all_correct = False
+            shape_results.append({
+                "idx": idx, "label": label,
+                "compiled": False, "correct": False,
+                "runtime": -1, "ref_runtime": -1, "speedup": -1,
+            })
+            continue
+
+        runtime_ms = result.runtime if result.runtime > 0 else -1
+        ref_runtime_ms = result.ref_runtime if result.ref_runtime > 0 else -1
+        speedup = (ref_runtime_ms / runtime_ms) if (runtime_ms > 0 and ref_runtime_ms > 0) else -1
+
+        print(f"SHAPE_{idx}_LABEL: {label}")
+        print(f"SHAPE_{idx}_COMPILED: {result.compiled}")
+        print(f"SHAPE_{idx}_CORRECT: {result.correctness}")
+        print(f"SHAPE_{idx}_RUNTIME: {runtime_ms:.4f}" if runtime_ms > 0 else f"SHAPE_{idx}_RUNTIME: -1")
+        print(f"SHAPE_{idx}_REF_RUNTIME: {ref_runtime_ms:.4f}" if ref_runtime_ms > 0 else f"SHAPE_{idx}_REF_RUNTIME: -1")
+        print(f"SHAPE_{idx}_SPEEDUP: {speedup:.4f}x" if speedup > 0 else f"SHAPE_{idx}_SPEEDUP: -1")
+
+        if not result.correctness:
+            all_correct = False
+
+        shape_results.append({
+            "idx": idx, "label": label,
+            "compiled": result.compiled, "correct": result.correctness,
+            "runtime": runtime_ms, "ref_runtime": ref_runtime_ms, "speedup": speedup,
+        })
+
+        if args.verbose and result.runtime_stats:
+            print(f"  Runtime stats: {result.runtime_stats}")
+        if args.verbose and result.ref_runtime_stats:
+            print(f"  Ref runtime stats: {result.ref_runtime_stats}")
+
+        if baseline_src is not None and result.correctness and runtime_ms > 0:
+            patched_bl = _inject_shape_idx(
+                prepare_solution_source(patched_ref, baseline_src), idx
+            )
+            bl_result = eval_kernel_against_ref(
+                original_model_src=patched_ref,
+                custom_model_src=patched_bl,
+                num_correct_trials=1,
+                num_perf_trials=args.num_perf_trials,
+                measure_performance=True,
+                timing_method=args.timing_method,
+                verbose=False,
+                backend=args.backend,
+                precision=precision,
+                check_for_excessive_speedup=False,
+            )
+            bl_ms = bl_result.runtime if (bl_result and bl_result.runtime > 0) else -1
+            bl_speedup = (bl_ms / runtime_ms) if bl_ms > 0 else -1
+            print(f"SHAPE_{idx}_BASELINE_RUNTIME: {bl_ms:.4f}" if bl_ms > 0 else f"SHAPE_{idx}_BASELINE_RUNTIME: -1")
+            print(f"SHAPE_{idx}_BASELINE_SPEEDUP: {bl_speedup:.4f}x" if bl_speedup > 0 else f"SHAPE_{idx}_BASELINE_SPEEDUP: -1")
+            shape_results[-1]["baseline_speedup"] = bl_speedup
+
+    print()
+    print("=" * 60)
+    print("MULTI-SHAPE SUMMARY")
+    print("=" * 60)
+    _print_multi_shape_summary(shape_results, all_correct)
+
+    sys.exit(0 if all_correct else 1)
 
 
 if __name__ == "__main__":

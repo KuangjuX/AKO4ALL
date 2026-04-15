@@ -2,13 +2,15 @@
 # Benchmark wrapper with trajectory tracking
 # Usage: bash scripts/bench.sh [label]
 set -eo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 LABEL="${1:-}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # --- Bench command ---
 # Run benchmark without exiting on failure — we need trajectory even for failed runs
+# IMPORTANT: --baseline input/kernel.py is REQUIRED so that BASELINE_SPEEDUP is reported.
+# The commit body field speedup_vs_baseline MUST use BASELINE_SPEEDUP (not SPEEDUP).
 set +e
 {{BENCH_COMMAND}}
 BENCH_EXIT=$?
