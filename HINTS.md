@@ -8,3 +8,4 @@
 
 - **NEVER** use `git reset`, `git rebase`, or `git commit --amend`. The ONLY rollback mechanism is `git revert`. This is verified automatically by `kernelhub sync-git` — violations cause the entire run to be rejected.
 - Before each commit, mentally verify: "Does this commit ADD to the linear chain? Or does it REPLACE/DELETE existing commits?" Only the former is acceptable.
+- **NEVER change kernel function signatures or output types.** The parameter types (`fp8e4m3*`, `fp8e8m0*`, `bf16*`, etc.) and output tensor dtypes are frozen. Optimizations that change the interface (e.g. outputting `float*` instead of `fp8e4m3*`) will be rejected by both the benchmark (dtype mismatch → `CORRECT=False`) and the patch generator (`INTERFACE_CHANGED` error). Focus on algorithm-level optimizations: instruction selection, memory access patterns, occupancy tuning, warp scheduling, etc.

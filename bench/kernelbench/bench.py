@@ -453,6 +453,25 @@ def run_and_check_correctness(
                 fp8_dtypes = (getattr(torch, "float8_e4m3fn", None), getattr(torch, "float8_e5m2", None))
                 fp8_dtypes = tuple(d for d in fp8_dtypes if d is not None)
                 for oi, (o, o_new) in enumerate(zip(out_list, out_new_list)):
+                    if o.dtype != o_new.dtype:
+                        metadata = register_and_format_exception(
+                            "correctness_issue",
+                            f"Output[{oi}] dtype mismatch: Expected {o.dtype}, got {o_new.dtype}. "
+                            f"The optimized kernel must produce outputs with the same dtype as the reference. "
+                            f"Changing output types (e.g. fp8 -> float32) to absorb Python-side conversion "
+                            f"overhead is not a valid optimization.",
+                            metadata,
+                        )
+                        metadata["correctness_issue_name"] = "INTERFACE_CHANGED"
+                        if verbose:
+                            print(
+                                f"[FAIL] trial {trial}: Output[{oi}] dtype mismatch: "
+                                f"Expected {o.dtype}, got {o_new.dtype}"
+                            )
+                        return KernelExecResult(
+                            compiled=True, correctness=False, metadata=metadata
+                        )
+
                     if o.shape != o_new.shape:
                         metadata = register_and_format_exception(
                             "correctness_issue",

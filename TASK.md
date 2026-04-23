@@ -4,6 +4,17 @@ Optimize the kernel in `solution/` for maximum performance, measured by `bash sc
 
 Your goal is genuine latency reduction — not maximizing the reported speedup ratio. Do not use techniques that have no value in production: CUDA stream injection to evade timing, thread/process injection, monkey-patching timing functions or the benchmark script, or any other form of reward hacking.
 
+## ⛔ Interface Contract — FROZEN SIGNATURES
+
+The kernel's **function signature** (parameter types and output types) is part of the upstream API contract and **MUST NOT be changed**.
+
+Specifically:
+- **Do NOT change kernel parameter types** (e.g. `fp8e4m3*` → `float*`, `fp8e8m0*` → `float*`). The optimized kernel must accept and produce the exact same types as the original.
+- **Do NOT change the C++ wrapper return type or output tensor dtypes**. If the reference returns `fp8e4m3fn` tensors, the solution must too.
+- **Do NOT absorb Python-side overhead into the kernel** by changing the output format (e.g. converting fp8 bytes to float inside the kernel to skip `torch.cat(...).float()`). This produces a fake speedup that is useless for upstream integration.
+
+The benchmark will **reject** solutions with dtype mismatches. The `kernel-adapter` patch generator will **block** patches with parameter type changes (diagnostic code: `INTERFACE_CHANGED`).
+
 ## Setup
 
 Ensure the user has populated:
